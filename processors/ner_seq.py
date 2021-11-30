@@ -173,7 +173,7 @@ class CnerProcessor(DataProcessor):
         return self._create_examples(self._read_text(os.path.join(data_dir, "test.char.bmes")), "test")
 
     def get_labels(self):
-        """See base class."""
+        """See base class. X for padding"""
         return ["X",'B-CONT','B-EDU','B-LOC','B-NAME','B-ORG','B-PRO','B-RACE','B-TITLE',
                 'I-CONT','I-EDU','I-LOC','I-NAME','I-ORG','I-PRO','I-RACE','I-TITLE',
                 'O','S-NAME','S-ORG','S-RACE',"[START]", "[END]"]
@@ -214,7 +214,7 @@ class CluenerProcessor(DataProcessor):
         return self._create_examples(self._read_json(os.path.join(data_dir, "test.json")), "test")
 
     def get_labels(self):
-        """See base class."""
+        """See base class. X for padding"""
         return ["X", "B-address", "B-book", "B-company", 'B-game', 'B-government', 'B-movie', 'B-name',
                 'B-organization', 'B-position','B-scene',"I-address",
                 "I-book", "I-company", 'I-game', 'I-government', 'I-movie', 'I-name',
