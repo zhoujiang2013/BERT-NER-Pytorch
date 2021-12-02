@@ -59,6 +59,7 @@ class BertCrfForNer(BertPreTrainedModel):
         logits = self.classifier(sequence_output)
         outputs = (logits,)
         if labels is not None:
+            # ctf.decode应该作为前向，目前的foward是在计算loss
             loss = self.crf(emissions = logits, tags=labels, mask=attention_mask)
             outputs =(-1*loss,)+outputs
         return outputs # (loss), scores
