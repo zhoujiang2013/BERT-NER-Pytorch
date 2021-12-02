@@ -1,8 +1,16 @@
+import sys
+defaultencoding = 'utf-8'
+if sys.getdefaultencoding() != defaultencoding:
+    reload(sys)
+    sys.setdefaultencoding(defaultencoding)
+import os
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 import glob
 import logging
-import os
 import json
 import time
+
 
 import torch
 import torch.nn as nn
