@@ -208,6 +208,7 @@ def evaluate(args, model, tokenizer, prefix=""):
     nb_eval_steps = 0
     pbar = ProgressBar(n_total=len(eval_dataloader), desc="Evaluating")
     if isinstance(model, nn.DataParallel):
+        # model._modules['crf']与train的时候不一样，注意此处
         model = model.module
     for step, batch in enumerate(eval_dataloader):
         model.eval()
@@ -219,7 +220,8 @@ def evaluate(args, model, tokenizer, prefix=""):
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
             tags, logits = outputs[:2]
-            tmp_eval_loss = model._modules['module'].loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
+            
+            tmp_eval_loss = model._modules['crf'].loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
         if args.n_gpu > 1:
             tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
         eval_loss += tmp_eval_loss.item()
@@ -284,7 +286,7 @@ def predict(args, model, tokenizer, prefix=""):
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
             tags, logits = outputs[:2]
-#             loss = model._modules['module'].loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])                                      
+#             loss = model._modules['crf'].loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])                                      
             tags  = tags.squeeze(0).cpu().numpy().tolist()
         preds = tags[0][1:-1]  # [CLS]XXXX[SEP]
         label_entities = get_entities(preds, args.id2label, args.markup)
