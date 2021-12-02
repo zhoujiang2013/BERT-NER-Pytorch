@@ -60,9 +60,11 @@ class BertCrfForNer(BertPreTrainedModel):
         outputs = (logits,)
         if labels is not None:
             # ctf.decode应该作为前向，目前的foward是在计算loss
-            loss = self.crf(emissions = logits, tags=labels, mask=attention_mask)
-            outputs =(-1*loss,)+outputs
-        return outputs # (loss), scores
+            pred = self.crf.decode(logits, attention_mask)
+            outputs = (pred,) + outputs
+#             loss = self.crf(emissions = logits, tags=labels, mask=attention_mask)
+#             outputs =(-1*loss,)+outputs
+        return outputs 
 
 class BertSpanForNer(BertPreTrainedModel):
     def __init__(self, config,):
