@@ -141,7 +141,7 @@ def train(args, train_dataset, model, tokenizer):
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
             pred, logits = outputs[:2]
-            loss = -1 * model.crf((emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
+            loss = -1 * model.crf.loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
             if args.gradient_accumulation_steps > 1:
@@ -219,7 +219,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
             tags, logits = outputs[:2]
-            tmp_eval_loss = -1 * model.crf((emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
+            tmp_eval_loss = -1 * model.crf.loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
         if args.n_gpu > 1:
             tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
         eval_loss += tmp_eval_loss.item()
@@ -284,7 +284,7 @@ def predict(args, model, tokenizer, prefix=""):
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
             tags, logits = outputs[:2]
-#             loss = -1 * model.crf((emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])                                           
+#             loss = -1 * model.crf.loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])                                      
             tags  = tags.squeeze(0).cpu().numpy().tolist()
         preds = tags[0][1:-1]  # [CLS]XXXX[SEP]
         label_entities = get_entities(preds, args.id2label, args.markup)
