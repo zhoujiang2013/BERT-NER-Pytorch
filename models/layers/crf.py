@@ -49,7 +49,7 @@ class CRF(nn.Module):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(num_tags={self.num_tags})'
 
-    def forward(self, emissions: torch.Tensor,
+    def loss_fn(self, emissions: torch.Tensor,
                 tags: torch.LongTensor,
                 mask: Optional[torch.ByteTensor] = None,
                 reduction: str = 'mean') -> torch.Tensor:
@@ -99,7 +99,7 @@ class CRF(nn.Module):
             return llh.mean()
         return llh.sum() / mask.float().sum()
 
-    def decode(self, emissions: torch.Tensor,
+    def forward(self, emissions: torch.Tensor,
                mask: Optional[torch.ByteTensor] = None,
                nbest: Optional[int] = None,
                pad_tag: Optional[int] = None) -> List[List[List[int]]]:
