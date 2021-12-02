@@ -64,7 +64,7 @@ class BertCrfForNer(BertPreTrainedModel):
             outputs = (pred,) + outputs
         return outputs 
     def loss_fn(self, emissions, tags, mask):
-        self.crf.loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
+        return -1 * self.crf.loss_fn(emissions = logits, tags=inputs['labels'], mask=inputs['attention_mask'])
 
 
 class BertSpanForNer(BertPreTrainedModel):
