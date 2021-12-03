@@ -13,6 +13,7 @@ import json
 import time
 import numpy as np
 import torch
+import torch.nn as nn 
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -186,7 +187,7 @@ def train(args, train_dataset, model, tokenizer):
                     output_names = [ "output1" ]
                     dummy_input = (inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'])
                     torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "bertSoftmax.onnx"), 
-                                      verbose=True, 
+                                      verbose=False, 
                                       opset_version=12,
                                       input_names=input_names, 
                                       output_names=output_names,
@@ -219,6 +220,8 @@ def evaluate(args, model, tokenizer, prefix=""):
     eval_loss = 0.0
     nb_eval_steps = 0
     pbar = ProgressBar(n_total=len(eval_dataloader), desc="Evaluating")
+    if isinstance(model, nn.DataParallel):
+        model = model.module
     for step, batch in enumerate(eval_dataloader):
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
@@ -230,8 +233,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
         preds, logits = outputs[:2]
-#         import pdb;pdb.set_trace()
-        loss = model.module.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
+        loss = model.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
         if args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel evaluating
         eval_loss += loss.item()
@@ -284,6 +286,8 @@ def predict(args, model, tokenizer, prefix=""):
     results = []
     output_submit_file = os.path.join(pred_output_dir, prefix, "test_prediction.json")
     pbar = ProgressBar(n_total=len(test_dataloader), desc="Predicting")
+    if isinstance(model, nn.DataParallel):
+        model = model.module
     for step, batch in enumerate(test_dataloader):
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
@@ -465,7 +469,7 @@ def main():
         with open(output_eval_file, "w") as writer:
             for key in sorted(results.keys()):
                 writer.write("{} = {}\n".format(key, str(results[key])))
-
+    
     if args.do_predict and args.local_rank in [-1, 0]:
         tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
         checkpoints = [args.output_dir]
