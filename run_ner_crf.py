@@ -189,7 +189,7 @@ def train(args, train_dataset, model, tokenizer):
                     output_names = [ "output1" ]
                     dummy_input = (inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'])
                     torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "bertCrf.onnx"), 
-                                      verbose=True, 
+                                      verbose=False, 
                                       opset_version=12,
                                       input_names=input_names, 
                                       output_names=output_names,
