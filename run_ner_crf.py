@@ -141,8 +141,9 @@ def train(args, train_dataset, model, tokenizer):
                 # XLM and RoBERTa don"t use segment_ids
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
-            pred, logits = outputs[:2]
-            loss = model._modules['module'].loss_fn(emissions = logits, tags=labels, mask=inputs['attention_mask'])
+            preds, logits = outputs[:2]
+            loss = model.module.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
+#             loss = model._modules['module'].loss_fn(emissions = logits, tags=labels, mask=inputs['attention_mask'])
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
             if args.gradient_accumulation_steps > 1:
@@ -189,7 +190,7 @@ def train(args, train_dataset, model, tokenizer):
                     dummy_input = (inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'])
                     torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "bertCrf.onnx"), 
                                       verbose=True, 
-                                      opset_version=10,
+                                      opset_version=12,
                                       input_names=input_names, 
                                       output_names=output_names,
                                      dynamic_axes={'input_ids' : {0 : 'batch_size'},  
@@ -235,16 +236,17 @@ def evaluate(args, model, tokenizer, prefix=""):
                 # XLM and RoBERTa don"t use segment_ids
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
-            tags, logits = outputs[:2]
-            
-            tmp_eval_loss = model._modules['crf'].loss_fn(emissions = logits, tags=labels, mask=inputs['attention_mask'], reduction='mean')
+            preds, logits = outputs[:2]
+            loss = model.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
+
+#             loss = model._modules['crf'].loss_fn(emissions = logits, tags=labels, mask=inputs['attention_mask'], reduction='mean')
         if args.n_gpu > 1:
-            tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
-        eval_loss += tmp_eval_loss.item()
+            loss = loss.mean()  # mean() to average on multi-gpu parallel evaluating
+        eval_loss += loss.item()
         nb_eval_steps += 1
         out_label_ids = labels.cpu().numpy().tolist()
         input_lens = batch[4].cpu().numpy().tolist()
-        tags = tags.squeeze(0).cpu().numpy().tolist()
+        preds = preds.squeeze(0).cpu().numpy().tolist()
         for i, label in enumerate(out_label_ids):
             temp_1 = []
             temp_2 = []
@@ -256,7 +258,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                     break
                 else:
                     temp_1.append(args.id2label[out_label_ids[i][j]])
-                    temp_2.append(args.id2label[tags[i][j]])
+                    temp_2.append(args.id2label[preds[i][j]])
         pbar(step)
     logger.info("\n")
     eval_loss = eval_loss / nb_eval_steps
@@ -302,10 +304,9 @@ def predict(args, model, tokenizer, prefix=""):
                 # XLM and RoBERTa don"t use segment_ids
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
-            tags, logits = outputs[:2]
-#             loss = model._modules['crf'].loss_fn(emissions = logits, tags=labels, mask=inputs['attention_mask'])                                      
-            tags = tags.squeeze(0).cpu().numpy().tolist()
-        preds = tags[0][1:-1]  # [CLS]XXXX[SEP]
+            preds, logits = outputs[:2]
+            preds = preds.squeeze(0).cpu().numpy().tolist()
+        preds = preds[0][1:-1]  # [CLS]XXXX[SEP]
         label_entities = get_entities(preds, args.id2label, args.markup)
         json_d = {}
         json_d['id'] = step
