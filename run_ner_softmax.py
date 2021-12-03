@@ -1,7 +1,14 @@
+import sys
+defaultencoding = 'utf-8'
+if sys.getdefaultencoding() != defaultencoding:
+    reload(sys)
+    sys.setdefaultencoding(defaultencoding)
+import os
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 import argparse
 import glob
 import logging
-import os
 import json
 import time
 import numpy as np
@@ -118,12 +125,14 @@ def train(args, train_dataset, model, tokenizer):
                 continue
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
-            inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
+            labels = batch[3]
+            inputs = {"input_ids": batch[0], "attention_mask": batch[1]}
             if args.model_type != "distilbert":
                 # XLM and RoBERTa don"t use segment_ids
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
-            loss = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
+            pred, logits = outputs[:2]
+            loss = model.module.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
             if args.gradient_accumulation_steps > 1:
@@ -172,6 +181,21 @@ def train(args, train_dataset, model, tokenizer):
                     # torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
                     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                     logger.info("Saving optimizer and scheduler states to %s", output_dir)
+                    
+                    input_names = ["input_ids", "attention_mask", "token_type_ids"]
+                    output_names = [ "output1" ]
+                    dummy_input = (inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'])
+                    torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "bertSoftmax.onnx"), 
+                                      verbose=True, 
+                                      opset_version=12,
+                                      input_names=input_names, 
+                                      output_names=output_names,
+                                     dynamic_axes={'input_ids' : {0 : 'batch_size'},  
+                                                   'attention_mask' : {0 : 'batch_size'}, 
+                                                   'token_type_ids' : {0 : 'batch_size'}, 
+                                                   'output1' : {0 : 'batch_size'}})
+
+                    
         logger.info("\n")
         if 'cuda' in str(args.device):
             torch.cuda.empty_cache()
@@ -199,18 +223,21 @@ def evaluate(args, model, tokenizer, prefix=""):
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
         with torch.no_grad():
-            inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
+            labels = batch[3]
+            inputs = {"input_ids": batch[0], "attention_mask": batch[1]}
             if args.model_type != "distilbert":
                 # XLM and RoBERTa don"t use segment_ids
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
-        tmp_eval_loss, logits = outputs[:2]
+        preds, logits = outputs[:2]
+#         import pdb;pdb.set_trace()
+        loss = model.module.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
         if args.n_gpu > 1:
-            tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
-        eval_loss += tmp_eval_loss.item()
+            loss = loss.mean()  # mean() to average on multi-gpu parallel evaluating
+        eval_loss += loss.item()
         nb_eval_steps += 1
-        preds = np.argmax(logits.cpu().numpy(), axis=2).tolist()
-        out_label_ids = inputs['labels'].cpu().numpy().tolist()
+        preds = preds.cpu().numpy().tolist()
+        out_label_ids = labels.cpu().numpy().tolist()
         input_lens = batch[4].cpu().numpy().tolist()
         for i, label in enumerate(out_label_ids):
             temp_1 = []
@@ -223,7 +250,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                     break
                 else:
                     temp_1.append(args.id2label[out_label_ids[i][j]])
-                    temp_2.append(preds[i][j])
+                    temp_2.append(args.id2label[preds[i][j]])
         pbar(step)
     logger.info("\n")
     eval_loss = eval_loss / nb_eval_steps
@@ -266,15 +293,16 @@ def predict(args, model, tokenizer, prefix=""):
                 # XLM and RoBERTa don"t use segment_ids
                 inputs["token_type_ids"] = (batch[2] if args.model_type in ["bert", "xlnet"] else None)
             outputs = model(**inputs)
-        logits = outputs[0]
-        preds = logits.detach().cpu().numpy()
-        preds = np.argmax(preds, axis=2).tolist()
+        preds, logits = outputs[:2]
+        preds = preds.squeeze(0).cpu().numpy().tolist()
         preds = preds[0][1:-1] # [CLS]XXXX[SEP]
-        tags = [args.id2label[x] for x in preds]
+#         preds = logits.detach().cpu().numpy()
+#         preds = np.argmax(preds, axis=2).tolist()
+#         preds = preds[0][1:-1] # [CLS]XXXX[SEP]
         label_entities = get_entities(preds, args.id2label, args.markup)
         json_d = {}
         json_d['id'] = step
-        json_d['tag_seq'] = " ".join(tags)
+        json_d['tag_seq'] = " ".join([args.id2label[x] for x in preds])
         json_d['entities'] = label_entities
         results.append(json_d)
         pbar(step)
