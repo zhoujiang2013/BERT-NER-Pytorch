@@ -41,7 +41,7 @@ MODEL_CLASSES = {
 
 def train(args, train_dataset, model, tokenizer):
     """ Train the model """
-    args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
+    args.train_batch_size = args.per_train_batch_size * max(1, args.multi)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size,
                                   collate_fn=collate_fn)
@@ -75,7 +75,7 @@ def train(args, train_dataset, model, tokenizer):
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
     # multi-gpu training (should be after apex fp16 initialization)
-    if args.n_gpu > 1:
+    if args.multi > 1:
         model = torch.nn.DataParallel(model)
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
@@ -86,7 +86,7 @@ def train(args, train_dataset, model, tokenizer):
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
+    logger.info("  Instantaneous batch size per GPU = %d", args.per_train_batch_size)
     logger.info("  Total train batch size (w. parallel, distributed & accumulation) = %d",
         args.train_batch_size
         * args.gradient_accumulation_steps
@@ -134,7 +134,7 @@ def train(args, train_dataset, model, tokenizer):
             outputs = model(**inputs)
             pred, logits = outputs[:2]
             loss = model.module.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
-            if args.n_gpu > 1:
+            if args.multi > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
@@ -146,7 +146,7 @@ def train(args, train_dataset, model, tokenizer):
             if args.do_adv:
                 fgm.attack()
                 loss_adv = model(**inputs)[0]
-                if args.n_gpu>1:
+                if args.multi>1:
                     loss_adv = loss_adv.mean()
                 loss_adv.backward()
                 fgm.restore()
@@ -208,7 +208,7 @@ def evaluate(args, model, tokenizer, prefix=""):
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
     eval_dataset = load_and_cache_examples(args, args.task_name,tokenizer, data_type='dev')
-    args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
+    args.eval_batch_size = args.per_eval_batch_size * max(1, args.multi)
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,
@@ -234,7 +234,7 @@ def evaluate(args, model, tokenizer, prefix=""):
             outputs = model(**inputs)
         preds, logits = outputs[:2]
         loss = model.loss_fn(logits=logits, labels=labels, attention_mask=inputs['attention_mask'])
-        if args.n_gpu > 1:
+        if args.multi > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel evaluating
         eval_loss += loss.item()
         nb_eval_steps += 1
@@ -389,16 +389,16 @@ def main():
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-        args.n_gpu = torch.cuda.device_count()
+        args.multi = torch.cuda.device_count()
     else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend="nccl")
-        args.n_gpu = 1
+        args.multi = 1
     args.device = device
     logger.warning(
-                "Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-                args.local_rank,device,args.n_gpu, bool(args.local_rank != -1),args.fp16,)
+                "Process rank: %s, device: %s, multi: %s, distributed training: %s, 16-bits training: %s",
+                args.local_rank,device,args.multi, bool(args.local_rank != -1),args.fp16,)
     # Set seed
     seed_everything(args.seed)
     # Prepare NER task
