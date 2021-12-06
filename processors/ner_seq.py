@@ -4,6 +4,7 @@ import logging
 import os
 import copy
 import json
+from .vocabulary import Vocabulary
 from .utils_ner import DataProcessor
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,22 @@ def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,
 class CnerProcessor(DataProcessor):
     """Processor for the chinese ner data set."""
 
+    def get_vocab(self, data_dir):
+        vocab = Vocabulary()
+        vocab_path = data_dir + 'vocab.pkl'
+        if os.path.exists(vocab_path):
+            vocab.load_from_file(str(vocab_path))
+        else:
+            train_examples = self.get_train_examples(data_dir)
+            dev_examples = self.get_dev_examples(data_dir)
+            test_examples = self.get_test_examples(data_dir)
+            for examples in [train_examples, dev_examples , test_examples]:
+                for example in examples:
+                    vocab.update(list(example.text_a))
+            vocab.build_vocab()
+            vocab.save(vocab_path)
+        return vocab
+
     def get_train_examples(self, data_dir):
         """See base class."""
         return self._create_examples(self._read_text(os.path.join(data_dir, "train.char.bmes")), "train")
@@ -173,7 +190,7 @@ class CnerProcessor(DataProcessor):
         return self._create_examples(self._read_text(os.path.join(data_dir, "test.char.bmes")), "test")
 
     def get_labels(self):
-        """See base class. X for padding"""
+        """See base class."""
         return ["X",'B-CONT','B-EDU','B-LOC','B-NAME','B-ORG','B-PRO','B-RACE','B-TITLE',
                 'I-CONT','I-EDU','I-LOC','I-NAME','I-ORG','I-PRO','I-RACE','I-TITLE',
                 'O','S-NAME','S-ORG','S-RACE',"[START]", "[END]"]
@@ -214,7 +231,7 @@ class CluenerProcessor(DataProcessor):
         return self._create_examples(self._read_json(os.path.join(data_dir, "test.json")), "test")
 
     def get_labels(self):
-        """See base class. X for padding"""
+        """See base class."""
         return ["X", "B-address", "B-book", "B-company", 'B-game', 'B-government', 'B-movie', 'B-name',
                 'B-organization', 'B-position','B-scene',"I-address",
                 "I-book", "I-company", 'I-game', 'I-government', 'I-movie', 'I-name',
