@@ -3,11 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .layers.crf import CRF
-from transformers import BertModel,BertPreTrainedModel
+from transformers import BertModel, BertPreTrainedModel
 from .layers.linears import PoolerEndLogits, PoolerStartLogits
 from torch.nn import CrossEntropyLoss
 from losses.focal_loss import FocalLoss
 from losses.label_smoothing import LabelSmoothingCrossEntropy
+
 
 class BertSoftmaxForNer(BertPreTrainedModel):
     def __init__(self, config):
@@ -20,11 +21,11 @@ class BertSoftmaxForNer(BertPreTrainedModel):
         self.init_weights()
 
     def forward(self, input_ids, attention_mask, token_type_ids):
-        outputs = self.bert(input_ids = input_ids,attention_mask=attention_mask,token_type_ids=token_type_ids)
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         sequence_output = outputs[0]
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
-#         preds = np.argmax(logits.detach().cpu().numpy(), axis=2).tolist()
+        #         preds = np.argmax(logits.detach().cpu().numpy(), axis=2).tolist()
         preds = torch.argmax(logits, axis=2)
         outputs = (preds, logits,) + outputs[2:]  # add hidden states and attention if they are here
 
@@ -50,6 +51,43 @@ class BertSoftmaxForNer(BertPreTrainedModel):
         return loss
 
 
+class SpatialDropout(nn.Dropout2d):
+    def __init__(self, p=0.6):
+        super(SpatialDropout, self).__init__(p=p)
+
+    def forward(self, x):
+        x = x.unsqueeze(2)  # (N, T, 1, K)
+        x = x.permute(0, 3, 2, 1)  # (N, K, 1, T)
+        x = super(SpatialDropout, self).forward(x)  # (N, K, 1, T), some features are masked
+        x = x.permute(0, 3, 2, 1)  # (N, T, 1, K)
+        x = x.squeeze(2)  # (N, T, K)
+        return x
+
+
+class BiLSTMCRFForNer(nn.Module):
+    def __init__(self, config):
+        super(NERModel, self).__init__()
+        self.emebdding_size = config.embedding_size
+        self.embedding = nn.Embedding(config.vocab_size, config.embedding_size)
+        self.bilstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.hidden_size,
+                              batch_first=True, num_layers=2, dropout=config.hidden_dropout_prob,
+                              bidirectional=True)
+        self.dropout = SpatialDropout(config.hidden_dropout_prob)
+        self.layer_norm = LayerNorm(config.hidden_size * 2)
+        self.classifier = nn.Linear(config.hidden_size * 2, config.num_labels)
+        self.crf = CRF(num_tags=config.num_labels, batch_first=True)
+
+    def forward(self, inputs_ids, input_mask):
+        embs = self.embedding(inputs_ids)
+        embs = self.dropout(embs)
+        embs = embs * input_mask.float().unsqueeze(2)
+        seqence_output, _ = self.bilstm(embs)
+        seqence_output = self.layer_norm(seqence_output)
+        logits = self.classifier(seqence_output)
+        preds = self.crf(logits, attention_mask, 1, 0)
+        return logits
+
+
 class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config):
         super(BertCrfForNer, self).__init__(config)
@@ -59,22 +97,22 @@ class BertCrfForNer(BertPreTrainedModel):
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
         self.init_weights()
 
-#     def forward(self, input_ids, attention_mask=None, token_type_ids=None, labels=None):
+    #     def forward(self, input_ids, attention_mask=None, token_type_ids=None, labels=None):
     def forward(self, input_ids, attention_mask, token_type_ids):
-        outputs =self.bert(input_ids=input_ids,attention_mask=attention_mask,token_type_ids=token_type_ids)
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         sequence_output = outputs[0]
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
-        outputs = (logits,)
-        preds = self.crf(logits, attention_mask,1,0)
-        outputs = (preds,) + outputs
+        preds = self.crf(logits, attention_mask, 1, 0)
+        outputs = (preds, logits,)
         return outputs
 
     def loss_fn(self, logits, labels, attention_mask):
-        return -1 * self.crf.loss_fn(emissions = logits, tags = labels, mask = attention_mask, reduction='mean')
+        return -1 * self.crf.loss_fn(emissions=logits, tags=labels, mask=attention_mask, reduction='mean')
+
 
 class BertSpanForNer(BertPreTrainedModel):
-    def __init__(self, config,):
+    def __init__(self, config, ):
         super(BertSpanForNer, self).__init__(config)
         self.soft_label = config.soft_label
         self.num_labels = config.num_labels
@@ -88,8 +126,8 @@ class BertSpanForNer(BertPreTrainedModel):
             self.end_fc = PoolerEndLogits(config.hidden_size + 1, self.num_labels)
         self.init_weights()
 
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, start_positions=None,end_positions=None):
-        outputs = self.bert(input_ids = input_ids,attention_mask=attention_mask,token_type_ids=token_type_ids)
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, start_positions=None, end_positions=None):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         sequence_output = outputs[0]
         sequence_output = self.dropout(sequence_output)
         start_logits = self.start_fc(sequence_output)
@@ -112,7 +150,7 @@ class BertSpanForNer(BertPreTrainedModel):
 
         if start_positions is not None and end_positions is not None:
             assert self.loss_type in ['lsr', 'focal', 'ce']
-            if self.loss_type =='lsr':
+            if self.loss_type == 'lsr':
                 loss_fct = LabelSmoothingCrossEntropy()
             elif self.loss_type == 'focal':
                 loss_fct = FocalLoss()
@@ -132,4 +170,6 @@ class BertSpanForNer(BertPreTrainedModel):
             total_loss = (start_loss + end_loss) / 2
             outputs = (total_loss,) + outputs
         return outputs
+
+
 
