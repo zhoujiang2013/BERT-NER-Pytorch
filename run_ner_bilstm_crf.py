@@ -38,9 +38,9 @@ MODEL_CLASSES = {
 }
 
 
-def train(args, model, tokenizer):
+def train(args, model, tokenizer,vocab=None):
     """ Train the model """
-    train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, data_type='train')
+    train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, data_type='train', vocab=vocab)
     args.train_batch_size = args.per_train_batch_size * max(1, args.multi)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size,
@@ -124,7 +124,7 @@ def train(args, model, tokenizer):
                     print(" ")
                     if args.local_rank == -1:
                         # Only evaluate when single GPU otherwise metrics may not average well
-                        evaluate(args, model, tokenizer)
+                        evaluate(args, model, tokenizer,vocab=vocab)
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     # Save model checkpoint
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
@@ -156,12 +156,12 @@ def train(args, model, tokenizer):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix=""):
+def evaluate(args, model, tokenizer, prefix="", vocab=None):
     metric = SeqEntityScore(args.id2label, markup=args.markup)
     eval_output_dir = args.output_dir
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
-    eval_dataset = load_and_cache_examples(args, args.task_name, tokenizer, data_type='dev')
+    eval_dataset = load_and_cache_examples(args, args.task_name, tokenizer, data_type='dev', vocab=vocab)
     args.eval_batch_size = args.per_eval_batch_size * max(1, args.multi)
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
@@ -216,11 +216,11 @@ def evaluate(args, model, tokenizer, prefix=""):
     return results
 
 
-def predict(args, model, tokenizer, prefix=""):
+def predict(args, model, tokenizer, prefix="", vocab=None):
     pred_output_dir = args.output_dir
     if not os.path.exists(pred_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(pred_output_dir)
-    test_dataset = load_and_cache_examples(args, args.task_name, tokenizer, data_type='test')
+    test_dataset = load_and_cache_examples(args, args.task_name, tokenizer, data_type='test', vocab=vocab)
     # Note that DistributedSampler samples randomly
     test_sampler = SequentialSampler(test_dataset) if args.local_rank == -1 else DistributedSampler(test_dataset)
     test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, collate_fn=collate_fn)
@@ -285,7 +285,7 @@ def predict(args, model, tokenizer, prefix=""):
             test_submit.append(json_d)
         json_to_text(output_submit_file,test_submit)
 
-def load_and_cache_examples(args, task, tokenizer, data_type='train'):
+def load_and_cache_examples(args, task, tokenizer, data_type='train', vocab=None):
     if args.local_rank not in [-1, 0] and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
     processor = processors[task]()
@@ -306,14 +306,15 @@ def load_and_cache_examples(args, task, tokenizer, data_type='train'):
             examples = processor.get_test_examples(args.data_dir)
         features = convert_examples_to_features(examples=examples,
                                                 tokenizer=tokenizer,
+                                                vocab=vocab,
                                                 label_list=label_list,
                                                 max_seq_length=args.train_max_seq_length if data_type == 'train' \
                                                     else args.eval_max_seq_length,
                                                 cls_token_at_end=bool(args.model_type in ["xlnet"]),
                                                 pad_on_left=bool(args.model_type in ['xlnet']),
-                                                cls_token=tokenizer.cls_token,
+                                                cls_token=None,
                                                 cls_token_segment_id=2 if args.model_type in ["xlnet"] else 0,
-                                                sep_token=tokenizer.sep_token,
+                                                sep_token=None,
                                                 # pad on the left for xlnet
                                                 pad_token=tokenizer.convert_tokens_to_ids([tokenizer.pad_token])[0],
                                                 pad_token_segment_id=4 if args.model_type in ['xlnet'] else 0,
@@ -394,7 +395,7 @@ def main():
     logger.info("Training/evaluation parameters %s", args)
     # Training
     if args.do_train:
-        global_step, tr_loss = train(args, model, tokenizer)
+        global_step, tr_loss = train(args, model, tokenizer, vocab=vocab)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
@@ -422,7 +423,7 @@ def main():
             prefix = checkpoint.split('/')[-1] if checkpoint.find('checkpoint') != -1 else ""
             model = model_class.from_pretrained(checkpoint, config=config)
             model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix)
+            result = evaluate(args, model, tokenizer, prefix=prefix,vocab=vocab)
             if global_step:
                 result = {"{}_{}".format(global_step, k): v for k, v in result.items()}
             results.update(result)
@@ -439,7 +440,7 @@ def main():
             prefix = checkpoint.split('/')[-1] if checkpoint.find('checkpoint') != -1 else ""
             model = model_class.from_pretrained(checkpoint, config=config)
             model.to(args.device)
-            predict(args, model, tokenizer, prefix=prefix)
+            predict(args, model, tokenizer, prefix=prefix,vocab=vocab)
 
 
 if __name__ == "__main__":
