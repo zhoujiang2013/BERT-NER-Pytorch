@@ -84,7 +84,7 @@ def parse_common(parser):
     parser.add_argument('--embedding_size',default=128,type=int)
     parser.add_argument('--hidden_size',default=384,type=int)
     parser.add_argument("--grad_norm", default=5.0, type=float, help="Max gradient norm.")
-
+    parser.add_argument("--dropout_prob", default=0.1, type=float, help="dropout prob.")
 
     return parser
 
