@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.nn import LayerNorm
 import torch.nn as nn
 import torch.nn.functional as F
 from .layers.crf import CRF
