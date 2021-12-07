@@ -66,7 +66,7 @@ def collate_fn(batch):
     all_labels = all_labels[:,:max_len]
     return all_input_ids, all_attention_mask, all_token_type_ids, all_labels,all_lens
 
-def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,
+def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,vocab=None
                                  cls_token_at_end=False,cls_token="[CLS]",cls_token_segment_id=1,
                                  sep_token="[SEP]",pad_on_left=False,pad_token=0,pad_token_segment_id=0,
                                  sequence_a_segment_id=0,mask_padding_with_zero=True,):
@@ -86,7 +86,12 @@ def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,
         tokens = tokenizer.tokenize(example.text_a)
         label_ids = [label_map[x] for x in example.labels]
         # Account for [CLS] and [SEP] with "- 2".
-        special_tokens_count = 2
+        special_tokens_count = 0
+        if sep_token is not None:
+            special_tokens_count += 1
+        if cls_token is not None:
+            special_tokens_count += 1
+
         if len(tokens) > max_seq_length - special_tokens_count:
             tokens = tokens[: (max_seq_length - special_tokens_count)]
             label_ids = label_ids[: (max_seq_length - special_tokens_count)]
@@ -109,20 +114,23 @@ def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,
         # For classification tasks, the first vector (corresponding to [CLS]) is
         # used as as the "sentence vector". Note that this only makes sense because
         # the entire model is fine-tuned.
-        tokens += [sep_token]
-        label_ids += [label_map['O']]
-        segment_ids = [sequence_a_segment_id] * len(tokens)
-
-        if cls_token_at_end:
-            tokens += [cls_token]
+        if sep_token is not None: 
+            tokens += [sep_token]
             label_ids += [label_map['O']]
-            segment_ids += [cls_token_segment_id]
+        segment_ids = [sequence_a_segment_id] * len(tokens)
+        if cls_token is not None:
+            if cls_token_at_end:
+                tokens += [cls_token]
+                label_ids += [label_map['O']]
+                segment_ids += [cls_token_segment_id]
+            else:
+                tokens = [cls_token] + tokens
+                label_ids = [label_map['O']] + label_ids
+                segment_ids = [cls_token_segment_id] + segment_ids
+        if vocab is not None:
+            input_ids = [vocab.to_index(w) for w in tokens]
         else:
-            tokens = [cls_token] + tokens
-            label_ids = [label_map['O']] + label_ids
-            segment_ids = [cls_token_segment_id] + segment_ids
-
-        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+            input_ids = tokenizer.convert_tokens_to_ids(tokens)
         # The mask has 1 for real tokens and 0 for padding tokens. Only real
         # tokens are attended to.
         input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
