@@ -70,9 +70,9 @@ class BilstmCrfForNer(nn.Module):
         self.emebdding_size = config.embedding_size
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_size)
         self.bilstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.hidden_size,
-                              batch_first=True, num_layers=2, dropout=config.hidden_dropout_prob,
+                              batch_first=True, num_layers=2, dropout=config.dropout_prob,
                               bidirectional=True)
-        self.dropout = SpatialDropout(config.hidden_dropout_prob)
+        self.dropout = SpatialDropout(config.dropout_prob)
         self.layer_norm = LayerNorm(config.hidden_size * 2)
         self.classifier = nn.Linear(config.hidden_size * 2, config.num_labels)
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
