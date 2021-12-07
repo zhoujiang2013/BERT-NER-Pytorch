@@ -34,7 +34,7 @@ from conf.model_config import  BilstmCrfConfig
 
 MODEL_CLASSES = {
     ## bert ernie bert_wwm bert_wwwm_ext
-    'bilstm': (BilstmCrfConfig, BiLSTMCRFForNer, BasicTokenizer),
+    'bilstm': (BilstmCrfConfig, BilstmCrfForNer, BasicTokenizer),
 }
 
 
