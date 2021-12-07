@@ -79,6 +79,7 @@ class BilstmCrfForNer(nn.Module):
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
 
     def forward(self, input_ids, attention_mask):
+        self.bilstm.flatten_parameters()
         embs = self.embedding(input_ids)
         embs = self.dropout(embs)
         embs = embs * attention_mask.float().unsqueeze(2)
