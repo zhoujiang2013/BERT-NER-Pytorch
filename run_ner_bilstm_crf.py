@@ -372,7 +372,9 @@ def main():
     args.id2label = {i: label for i, label in enumerate(label_list)}
     args.label2id = {label: i for i, label in enumerate(label_list)}
     num_labels = len(label_list)
-    vocab = processor.get_vocab(args.data_dir)
+    processor.get_vocab(args.data_dir)
+    
+    vocab = processor.vocab
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
