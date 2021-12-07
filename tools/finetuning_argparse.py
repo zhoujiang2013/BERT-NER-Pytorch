@@ -74,9 +74,9 @@ def parse_common(parser):
                         help="predict checkpoints starting with the same prefix as model_name ending and ending with step number")
 
     # model config, bert use BertConfig
-    parser.add_argument("--model_type", default=None, type=str, required=True,
+    parser.add_argument("--model_type", default='bert', type=str, 
                         help="Model type selected in the list: ['bert', '']")
-    parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
+    parser.add_argument("--model_name_or_path", default=None, type=str, 
                         help="Path to pre-trained model or shortcut name selected in the list: " )
 
 
