@@ -52,7 +52,7 @@ def train(args, model, tokenizer,vocab=None):
         t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
 
     parameters = [p for p in model.parameters() if p.requires_grad]
-    optimizer = optim.Adam(parameters, lr=args.learning_rate)
+    optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3,
                                   verbose=1, epsilon=1e-4, cooldown=0, min_lr=0, eps=1e-8)
 
