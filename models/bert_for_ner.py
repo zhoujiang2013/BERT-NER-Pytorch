@@ -78,8 +78,8 @@ class BilstmCrfForNer(nn.Module):
         self.classifier = nn.Linear(config.hidden_size * 2, config.num_labels)
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
 
-    def forward(self, inputs_ids, attention_mask):
-        embs = self.embedding(inputs_ids)
+    def forward(self, input_ids, attention_mask):
+        embs = self.embedding(input_ids)
         embs = self.dropout(embs)
         embs = embs * input_mask.float().unsqueeze(2)
         seqence_output, _ = self.bilstm(embs)
