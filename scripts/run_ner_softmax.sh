@@ -15,8 +15,8 @@ python run_ner_softmax.py \
   --data_dir=$DATA_DIR/${TASK_NAME}/ \
   --train_max_seq_length=128 \
   --eval_max_seq_length=512 \
-  --per_gpu_train_batch_size=24 \
-  --per_gpu_eval_batch_size=24 \
+  --per_train_batch_size=24 \
+  --per_eval_batch_size=24 \
   --learning_rate=3e-5 \
   --num_train_epochs=3.0 \
   --logging_steps=-1 \
