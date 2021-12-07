@@ -66,7 +66,7 @@ class SpatialDropout(nn.Dropout2d):
 
 class BilstmCrfForNer(nn.Module):
     def __init__(self, config):
-        super(NERModel, self).__init__()
+        super(BilstmCrfForNer, self).__init__()
         self.emebdding_size = config.embedding_size
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_size)
         self.bilstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.hidden_size,
