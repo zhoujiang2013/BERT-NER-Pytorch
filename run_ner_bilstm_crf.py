@@ -135,7 +135,6 @@ def train(args, model, tokenizer,vocab=None):
                     )  # Take care of distributed/parallel training
 #                     model_to_save.save_pretrained(output_dir)
                     state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model.state_dict()}
-                    model_path = args.output_dir / 'best-model.bin'
                     torch.save(state, os.path.join(output_dir, "best-model.bin"))
                     logger.info("Saving model checkpoint to %s", output_dir)
 
