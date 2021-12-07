@@ -29,6 +29,7 @@ from processors.ner_seq import ner_processors as processors
 from processors.ner_seq import collate_fn
 from metrics.ner_metrics import SeqEntityScore
 from tools.finetuning_argparse import get_argparse
+from conf.model_config import  BilstmCrfConfig
 
 
 MODEL_CLASSES = {
