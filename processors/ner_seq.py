@@ -160,22 +160,23 @@ def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,
 
 class CnerProcessor(DataProcessor):
     """Processor for the chinese ner data set."""
+    def __init__(self):
+        super(CnerProcessor, self).__init__()
+        self.vocab = Vocabulary()
 
     def get_vocab(self, data_dir):
-        vocab = Vocabulary()
         vocab_path = data_dir + 'vocab.pkl'
         if os.path.exists(vocab_path):
-            vocab.load_from_file(str(vocab_path))
+            self.vocab.load_from_file(str(vocab_path))
         else:
             train_examples = self.get_train_examples(data_dir)
             dev_examples = self.get_dev_examples(data_dir)
             test_examples = self.get_test_examples(data_dir)
             for examples in [train_examples, dev_examples , test_examples]:
                 for example in examples:
-                    vocab.update(list(example.text_a))
-            vocab.build_vocab()
-            vocab.save(vocab_path)
-        return vocab
+                    self.vocab.update(list(example.text_a))
+            self.vocab.build_vocab()
+            self.vocab.save(vocab_path)
 
     def get_train_examples(self, data_dir):
         """See base class."""
