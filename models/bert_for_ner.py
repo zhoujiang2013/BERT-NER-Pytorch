@@ -81,7 +81,7 @@ class BilstmCrfForNer(nn.Module):
     def forward(self, input_ids, attention_mask):
         embs = self.embedding(input_ids)
         embs = self.dropout(embs)
-        embs = embs * input_mask.float().unsqueeze(2)
+        embs = embs * attention_mask.float().unsqueeze(2)
         seqence_output, _ = self.bilstm(embs)
         seqence_output = self.layer_norm(seqence_output)
         logits = self.classifier(seqence_output)
