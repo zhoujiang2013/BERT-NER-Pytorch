@@ -313,11 +313,11 @@ def load_and_cache_examples(args, task, tokenizer, data_type='train', vocab=None
                                                 cls_token_at_end=bool(args.model_type in ["xlnet"]),
                                                 pad_on_left=bool(args.model_type in ['xlnet']),
                                                 cls_token=None,
-                                                cls_token_segment_id=2 if args.model_type in ["xlnet"] else 0,
+                                                cls_token_segment_id=0,
                                                 sep_token=None,
                                                 # pad on the left for xlnet
-                                                pad_token=tokenizer.convert_tokens_to_ids([tokenizer.pad_token])[0],
-                                                pad_token_segment_id=4 if args.model_type in ['xlnet'] else 0,
+                                                pad_token=0,
+                                                pad_token_segment_id=0,
                                                 )
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
