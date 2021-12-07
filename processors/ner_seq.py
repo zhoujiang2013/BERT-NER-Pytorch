@@ -66,7 +66,7 @@ def collate_fn(batch):
     all_labels = all_labels[:,:max_len]
     return all_input_ids, all_attention_mask, all_token_type_ids, all_labels,all_lens
 
-def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,vocab=None
+def convert_examples_to_features(examples,label_list,max_seq_length,tokenizer,vocab=None,
                                  cls_token_at_end=False,cls_token="[CLS]",cls_token_segment_id=1,
                                  sep_token="[SEP]",pad_on_left=False,pad_token=0,pad_token_segment_id=0,
                                  sequence_a_segment_id=0,mask_padding_with_zero=True,):
