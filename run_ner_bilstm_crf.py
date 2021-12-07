@@ -410,10 +410,9 @@ def main():
         model_to_save = (
             model.module if hasattr(model, "module") else model
         )  # Take care of distributed/parallel training
-        model_to_save.save_pretrained(args.output_dir)
-        tokenizer.save_vocabulary(args.output_dir)
-        # Good practice: save your training arguments together with the trained model
-        torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
+        state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model.state_dict()}
+        torch.save(state, os.path.join(args.output_dir, "best-model.bin"))
+        
     # Evaluation
     if args.do_eval and args.local_rank in [-1, 0]:
         results = {}
