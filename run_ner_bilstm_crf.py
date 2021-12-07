@@ -151,7 +151,7 @@ def train(args, model, tokenizer,vocab=None):
                                                    'output1' : {0 : 'batch_size'}})
                     
                     logger.info("Saving optimizer and scheduler states to %s", output_dir)
-        scheduler.epoch_step(results['eval_f1'], epoch)
+        scheduler.epoch_step(results['f1'], epoch)
         logger.info("\n")
         if 'cuda' in str(args.device):
             torch.cuda.empty_cache()
