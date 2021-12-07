@@ -291,7 +291,7 @@ def load_and_cache_examples(args, task, tokenizer, data_type='train'):
     processor = processors[task]()
     # Load data features from cache or dataset file
     max_seq_length = args.train_max_seq_length if data_type == 'train' else args.eval_max_seq_length
-    cached_features_file = os.path.join(args.data_dir, f'cached_{task}_{task}_{data_type}_{max_seq_length}')
+    cached_features_file = os.path.join(args.data_dir, f'cached_{task}_{data_type}_{max_seq_length}')
     if os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
