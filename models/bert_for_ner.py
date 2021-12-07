@@ -64,7 +64,7 @@ class SpatialDropout(nn.Dropout2d):
         return x
 
 
-class BiLSTMCRFForNer(nn.Module):
+class BilstmCrfForNer(nn.Module):
     def __init__(self, config):
         super(NERModel, self).__init__()
         self.emebdding_size = config.embedding_size
@@ -77,7 +77,7 @@ class BiLSTMCRFForNer(nn.Module):
         self.classifier = nn.Linear(config.hidden_size * 2, config.num_labels)
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
 
-    def forward(self, inputs_ids, input_mask):
+    def forward(self, inputs_ids, attention_mask):
         embs = self.embedding(inputs_ids)
         embs = self.dropout(embs)
         embs = embs * input_mask.float().unsqueeze(2)
@@ -85,7 +85,12 @@ class BiLSTMCRFForNer(nn.Module):
         seqence_output = self.layer_norm(seqence_output)
         logits = self.classifier(seqence_output)
         preds = self.crf(logits, attention_mask, 1, 0)
-        return logits
+        outputs = (preds, logits,)
+        return outputs
+
+    def loss_fn(self, logits, labels, attention_mask):
+        return -1 * self.crf.loss_fn(emissions=logits, tags=labels, mask=attention_mask, reduction='mean')
+
 
 
 class BertCrfForNer(BertPreTrainedModel):
@@ -170,6 +175,5 @@ class BertSpanForNer(BertPreTrainedModel):
             total_loss = (start_loss + end_loss) / 2
             outputs = (total_loss,) + outputs
         return outputs
-
 
 
