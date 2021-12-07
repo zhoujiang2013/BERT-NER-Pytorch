@@ -383,6 +383,7 @@ def main():
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     args.vocab_size = len(vocab)
+    args.num_labels = num_labels
     config = config_class(args)
     tokenizer = tokenizer_class(do_lower_case=args.do_lower_case)
 
