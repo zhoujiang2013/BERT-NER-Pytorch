@@ -116,7 +116,7 @@ def train(args, model, tokenizer,vocab=None):
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 optimizer.step()
-                scheduler.step()  # Update learning rate schedule
+        
                 model.zero_grad()
                 global_step += 1
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
@@ -124,7 +124,7 @@ def train(args, model, tokenizer,vocab=None):
                     print(" ")
                     if args.local_rank == -1:
                         # Only evaluate when single GPU otherwise metrics may not average well
-                        evaluate(args, model, tokenizer,vocab=vocab)
+                        results = evaluate(args, model, tokenizer,vocab=vocab)
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     # Save model checkpoint
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
@@ -150,6 +150,7 @@ def train(args, model, tokenizer,vocab=None):
                                                    'output1' : {0 : 'batch_size'}})
                     
                     logger.info("Saving optimizer and scheduler states to %s", output_dir)
+        scheduler.epoch_step(results['eval_f1'], epoch)
         logger.info("\n")
         if 'cuda' in str(args.device):
             torch.cuda.empty_cache()
