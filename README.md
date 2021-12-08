@@ -110,14 +110,16 @@ docker run -it -d -p 8888:8888 --ipc=host --name pytorch -v /home/root/docker_di
 
 ### 运行
 export PYTHONIOENCODING=utf-8 
-python run_ner_crf.py --model_type=bert --model_name_or_path=/workspace/BERT-NER-Pytorch/prev_trained_model/bert-base-chinese --task_name=cner --do_train --do_eval --do_lower_case --data_dir=/workspace/BERT-NER-Pytorch/datasets/cner/ --train_max_seq_length=128 --eval_max_seq_length=512 --per_gpu_train_batch_size=24 --per_gpu_eval_batch_size=24 --learning_rate=3e-5 --crf_learning_rate=1e-3 --num_train_epochs=4.0 --logging_steps=-1 --save_steps=-1 --output_dir=/workspace/BERT-NER-Pytorch/outputs/cner_output/ --overwrite_output_dir --seed=42
+python  run_ner_crf.py --model_type=bert --model_name_or_path=/docker_dir/jupter_dir/BERT-NER-Pytorch/prev_trained_model/bert-base-chinese --task_name=cluener --do_train --do_eval --do_lower_case --data_dir=/docker_dir/jupter_dir/BERT-NER-Pytorch/datasets/cluener/ --train_max_seq_length=128 --eval_max_seq_length=512 --per_train_batch_size=24 --per_eval_batch_size=24 --learning_rate=3e-5 --crf_learning_rate=1e-3 --num_train_epochs=3.0 --logging_steps=-1 --save_steps=-1 --output_dir=/docker_dir/jupter_dir/BERT-NER-Pytorch/outputs/cluener/ --overwrite_output_dir --seed=42
+
+
+python run_ner_softmax.py --model_type=bert --model_name_or_path=/docker_dir/jupter_dir/BERT-NER-Pytorch/prev_trained_model/bert-base-chinese --task_name=cluener --do_train --do_eval --do_lower_case --loss_type=ce --data_dir=/docker_dir/jupter_dir/BERT-NER-Pytorch/datasets/cluener/ --train_max_seq_length=128 --eval_max_seq_length=512 --per_train_batch_size=24 --per_eval_batch_size=24 --learning_rate=3e-5 --num_train_epochs=3.0 --logging_steps=-1 --save_steps=-1 --output_dir=/docker_dir/jupter_dir/BERT-NER-Pytorch/outputs/cluener/ --overwrite_output_dir --seed=42
+
+nohup python run_ner_bilstm_crf.py --model_type=bilstm --task_name=cluener --do_train --do_eval --do_lower_case --loss_type=ce --data_dir=/docker_dir/jupter_dir/BERT-NER-Pytorch/datasets/cluener/ --train_max_seq_length=128 --eval_max_seq_length=512 --per_train_batch_size=32 --per_eval_batch_size=32 --learning_rate=1e-3 --num_train_epochs=20.0 --logging_steps=-1 --save_steps=-1 --output_dir=/docker_dir/jupter_dir/BERT-NER-Pytorch/outputs/cluener/ --overwrite_output_dir --seed=42 --arch=bilstm_crf --embedding_size=128 --hidden_size=384 --grad_norm=5.0 > nohup.20.cluener &
+
 
 ## benchmark
 
 ### 数据集
 https://www.cluebenchmarks.com/dataSet_search_modify.html?keywords=%E5%91%BD%E5%90%8D%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB
-
-## docker
-### 容器启动
-docker run -it -d -p 8888:8888 --ipc=host --name pytorch -v /home/xx/docker_dir/:/docker_dir/ pytorch/pytorch:1.3-cuda10.1-cudnn7-devel /bin/bash
 
