@@ -133,14 +133,14 @@ def train(args, model, tokenizer,vocab=None):
                         model_to_save = (
                             model.module if hasattr(model, "module") else model
                         )  # Take care of distributed/parallel training
-                        state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model.state_dict()}
+                        state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model_to_save.state_dict()}
                         torch.save(state, os.path.join(output_dir, "best-model.bin"))
                         logger.info("save best mode %s, epoch: %s, steps: %s", output_dir, epoch, global_step)
 
                         input_names = ["input_ids", "attention_mask"]
                         output_names = [ "output1" ]
                         dummy_input = (inputs['input_ids'], inputs['attention_mask'])
-                        torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "BilstmCrf.onnx"),
+                        torch.onnx.export(model_to_save, dummy_input, os.path.join(output_dir, "BilstmCrf.onnx"),
                                           verbose=False, 
                                           opset_version=12,
                                           input_names=input_names, 
