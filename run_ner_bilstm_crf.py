@@ -19,7 +19,7 @@ from torch.utils.data.distributed import DistributedSampler
 from callback.optimizater.adamw import AdamW
 from callback.lr_scheduler import ReduceLROnPlateau
 from callback.progressbar import ProgressBar
-from tools.common import seed_everything,json_to_text
+from tools.common import seed_everything,json_to_text,load_model
 from tools.common import init_logger, logger
 from transformers import BasicTokenizer
 from models.bert_for_ner import BilstmCrfForNer
