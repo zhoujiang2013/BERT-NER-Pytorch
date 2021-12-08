@@ -341,7 +341,7 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
-    args.output_dir = args.output_dir + '{}'.format(args.model_type)
+    args.output_dir = args.output_dir + f'{args.model_type}'
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
     time_ = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
