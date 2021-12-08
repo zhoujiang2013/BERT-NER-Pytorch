@@ -116,3 +116,8 @@ python run_ner_crf.py --model_type=bert --model_name_or_path=/workspace/BERT-NER
 
 ### 数据集
 https://www.cluebenchmarks.com/dataSet_search_modify.html?keywords=%E5%91%BD%E5%90%8D%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB
+
+## docker
+### 容器启动
+docker run -it -d -p 8888:8888 --ipc=host --name pytorch -v /home/xx/docker_dir/:/docker_dir/ pytorch/pytorch:1.3-cuda10.1-cudnn7-devel /bin/bash
+
