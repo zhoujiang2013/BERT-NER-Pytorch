@@ -119,38 +119,38 @@ def train(args, model, tokenizer,vocab=None):
         
                 model.zero_grad()
                 global_step += 1
-                if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
+                if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     # Log metrics
                     print(" ")
                     if args.local_rank == -1:
                         # Only evaluate when single GPU otherwise metrics may not average well
                         results = evaluate(args, model, tokenizer,vocab=vocab)
-                if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     # Save model checkpoint
-                    output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    model_to_save = (
-                        model.module if hasattr(model, "module") else model
-                    )  # Take care of distributed/parallel training
-#                     model_to_save.save_pretrained(output_dir)
-                    state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model.state_dict()}
-                    torch.save(state, os.path.join(output_dir, "best-model.bin"))
-                    logger.info("Saving model checkpoint to %s", output_dir)
+                    if results['f1'] > best_f1:
+                        output_dir = args.output_dir
+                        if not os.path.exists(output_dir):
+                            os.makedirs(output_dir)
+                        model_to_save = (
+                            model.module if hasattr(model, "module") else model
+                        )  # Take care of distributed/parallel training
+                        state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model.state_dict()}
+                        torch.save(state, os.path.join(output_dir, "best-model.bin"))
+                        logger.info("save best mode %s, epoch: %s, steps: %s", output_dir, epoch, global_step)
 
-                    input_names = ["input_ids", "attention_mask"]
-                    output_names = [ "output1" ]
-                    dummy_input = (inputs['input_ids'], inputs['attention_mask'])
-                    torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "BilstmCrf.onnx"),
-                                      verbose=False, 
-                                      opset_version=12,
-                                      input_names=input_names, 
-                                      output_names=output_names,
-                                     dynamic_axes={'input_ids' : {0 : 'batch_size'},  
-                                                   'attention_mask' : {0 : 'batch_size'},
-                                                   'output1' : {0 : 'batch_size'}})
+                        input_names = ["input_ids", "attention_mask"]
+                        output_names = [ "output1" ]
+                        dummy_input = (inputs['input_ids'], inputs['attention_mask'])
+                        torch.onnx.export(model.module, dummy_input, os.path.join(output_dir, "BilstmCrf.onnx"),
+                                          verbose=False, 
+                                          opset_version=12,
+                                          input_names=input_names, 
+                                          output_names=output_names,
+                                         dynamic_axes={'input_ids' : {0 : 'batch_size'},  
+                                                       'attention_mask' : {0 : 'batch_size'},
+                                                       'output1' : {0 : 'batch_size'}})
                     
-                    logger.info("Saving optimizer and scheduler states to %s", output_dir)
+                        logger.info("save onnx: %s", output_dir)
+                        best_f1 = results['f1']
         scheduler.epoch_step(results['f1'], epoch)
         logger.info("\n")
         if 'cuda' in str(args.device):
@@ -379,7 +379,7 @@ def main():
     
     vocab = processor.vocab
 
-    # Load pretrained model and tokenizer
+    # config、tokenizer、model
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
     args.model_type = args.model_type.lower()
@@ -399,49 +399,29 @@ def main():
     if args.do_train:
         global_step, tr_loss = train(args, model, tokenizer, vocab=vocab)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
-    # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
-    if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
-        # Create output directory if needed
-        if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
-            os.makedirs(args.output_dir)
-        logger.info("Saving model checkpoint to %s", args.output_dir)
-        # Save a trained model, configuration and tokenizer using `save_pretrained()`.
-        # They can then be reloaded using `from_pretrained()`
-        model_to_save = (
-            model.module if hasattr(model, "module") else model
-        )  # Take care of distributed/parallel training
-        state = {'epoch': epoch, 'arch': args.arch, 'state_dict': model.state_dict()}
-        torch.save(state, os.path.join(args.output_dir, "best-model.bin"))
-        
     # Evaluation
     if args.do_eval and args.local_rank in [-1, 0]:
         results = {}
-        tokenizer = tokenizer_class(do_lower_case=args.do_lower_case)
         checkpoints = [args.output_dir]
-        logger.info("Evaluate the following checkpoints: %s", checkpoints)
-        for checkpoint in checkpoints:
-            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
-            prefix = checkpoint.split('/')[-1] if checkpoint.find('checkpoint') != -1 else ""
-            model = model_class.from_pretrained(checkpoint, config=config)
-            model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix,vocab=vocab)
-            if global_step:
-                result = {"{}_{}".format(global_step, k): v for k, v in result.items()}
-            results.update(result)
+        logger.info("Load model for Evaluate, checkpoints: %s", checkpoints)
+        model_path = args.output_dir + 'best-model.bin'
+        model = load_model(model, model_path=str(model_path))
+        result = evaluate(args, model, tokenizer, prefix='',vocab=vocab)
+        if global_step:
+            result = {"{}_{}".format(global_step, k): v for k, v in result.items()}
+        results.update(result)
         output_eval_file = os.path.join(args.output_dir, "eval_results.txt")
         with open(output_eval_file, "w") as writer:
             for key in sorted(results.keys()):
                 writer.write("{} = {}\n".format(key, str(results[key])))
 
     if args.do_predict and args.local_rank in [-1, 0]:
-        tokenizer = tokenizer_class(do_lower_case=args.do_lower_case)
         checkpoints = [args.output_dir]
-        logger.info("Predict the following checkpoints: %s", checkpoints)
-        for checkpoint in checkpoints:
-            prefix = checkpoint.split('/')[-1] if checkpoint.find('checkpoint') != -1 else ""
-            model = model_class.from_pretrained(checkpoint, config=config)
-            model.to(args.device)
-            predict(args, model, tokenizer, prefix=prefix,vocab=vocab)
+        logger.info("Load model for Predict, checkpoints: %s", checkpoints)
+        model_path = args.output_dir + 'best-model.bin'
+        model = load_model(model, model_path=str(model_path))
+        predict(args, model, tokenizer, prefix='',vocab=vocab)
+            
 
 
 if __name__ == "__main__":
