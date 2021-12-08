@@ -111,3 +111,8 @@ docker run -it -d -p 8888:8888 --ipc=host --name pytorch -v /home/root/docker_di
 ### 运行
 export PYTHONIOENCODING=utf-8 
 python run_ner_crf.py --model_type=bert --model_name_or_path=/workspace/BERT-NER-Pytorch/prev_trained_model/bert-base-chinese --task_name=cner --do_train --do_eval --do_lower_case --data_dir=/workspace/BERT-NER-Pytorch/datasets/cner/ --train_max_seq_length=128 --eval_max_seq_length=512 --per_gpu_train_batch_size=24 --per_gpu_eval_batch_size=24 --learning_rate=3e-5 --crf_learning_rate=1e-3 --num_train_epochs=4.0 --logging_steps=-1 --save_steps=-1 --output_dir=/workspace/BERT-NER-Pytorch/outputs/cner_output/ --overwrite_output_dir --seed=42
+
+## benchmark
+
+### 数据集
+https://www.cluebenchmarks.com/dataSet_search_modify.html?keywords=%E5%91%BD%E5%90%8D%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB
