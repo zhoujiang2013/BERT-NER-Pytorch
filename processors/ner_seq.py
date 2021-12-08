@@ -226,6 +226,23 @@ class CnerProcessor(DataProcessor):
 
 class CluenerProcessor(DataProcessor):
     """Processor for the chinese ner data set."""
+    def __init__(self):
+        super(CluenerProcessor, self).__init__()
+        self.vocab = Vocabulary()
+
+    def get_vocab(self, data_dir):
+        vocab_path = data_dir + 'vocab.pkl'
+        if os.path.exists(vocab_path):
+            self.vocab.load_from_file(str(vocab_path))
+        else:
+            train_examples = self.get_train_examples(data_dir)
+            dev_examples = self.get_dev_examples(data_dir)
+            test_examples = self.get_test_examples(data_dir)
+            for examples in [train_examples, dev_examples , test_examples]:
+                for example in examples:
+                    self.vocab.update(list(example.text_a))
+            self.vocab.build_vocab()
+            self.vocab.save(vocab_path)
 
     def get_train_examples(self, data_dir):
         """See base class."""
